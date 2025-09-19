@@ -8,6 +8,8 @@ dependencies = [
   "meadow-metadata-agent"
 ]
 
+[tool.uv]
+reinstall-package = ["meadow-metadata-agent"]
+
 [tool.uv.sources]
 meadow-metadata-agent = { path = "${PRIV_PATH}/python/agent" }
-# meadow-metadata-agent = { path = "../agent" }

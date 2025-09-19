@@ -162,7 +162,7 @@ defmodule MeadowAI.MetadataAgent do
         pyread("pyproject.toml")
         |> String.replace("${PRIV_PATH}", :code.priv_dir(:meadow_ai) |> to_string())
 
-      case Pythonx.uv_init(pyproject) do
+      case Pythonx.uv_init(pyproject, force: true) do
         :ok ->
           {:ok, %{initialized_at: DateTime.utc_now()}}
 
@@ -203,11 +203,26 @@ defmodule MeadowAI.MetadataAgent do
       end
     rescue
       error ->
-        Logger.error("Claude query execution error: #{inspect(error)}")
+        log_python_error(error)
         {:error, {:query_execution_error, error}}
     end
   end
 
+  defp log_python_error(%Pythonx.Error{} = error) do
+    pyex = fn code, data ->
+      {output, _} = Pythonx.eval(code, %{"data" => data})
+      Pythonx.decode(output)
+    end
+
+    [
+      "Claude query execution error:",
+      pyex.("str(data)", Map.get(error, :type)),
+      pyex.("str(data)", Map.get(error, :value)),
+      pyex.("import traceback; traceback.format_tb(data)", Map.get(error, :traceback))
+    ]
+    |> Enum.join("\n")
+    |> Logger.error()
+  end
 
   defp parse_claude_response(response) when is_binary(response) do
     String.trim(response)

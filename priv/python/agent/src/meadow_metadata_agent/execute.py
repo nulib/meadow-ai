@@ -1,4 +1,5 @@
 import asyncio
+import json
 from claude_code_sdk import ClaudeCodeOptions, ClaudeSDKClient
 from meadow_metadata_agent.initialize import metadata_server
 
@@ -16,30 +17,59 @@ global_client = None
 client_options_global = client_options
 
 async def query_claude_general(prompt, context_json):
-    import json
-    global global_client
-
-    # Parse context and include it in the prompt
     context_data = json.loads(context_json) if context_json else {}
 
-    # Build enhanced prompt with context
-    enhanced_prompt = prompt
-    if context_data:
-        enhanced_prompt += f"\n\nContext data: {json.dumps(context_data, indent=2)}"
-        enhanced_prompt += "\n\nPlease use the available tools (generate_keywords, generate_description) if they would help answer this query."
+    # Build a more explicit prompt that encourages tool usage
+    enhanced_prompt = f"""You have access to these tools:
+    - generate_keywords: Generate relevant keywords from content
+    - generate_description: Generate a description from content
 
-    # Use client as context manager
-    async with ClaudeSDKClient(options=client_options_global) as client:
+    User query: {prompt}
+
+    Context data: {json.dumps(context_data, indent=2) if context_data else "None"}
+
+    Please use the appropriate tools to help answer this query. For example:
+    - If asked to extract keywords, use the generate_keywords tool
+    - If asked to create descriptions, use the generate_description tool
+    - Use tools even if you could answer without them, as they provide structured analysis
+
+    Respond with both tool results and your analysis."""
+
+    async with ClaudeSDKClient(options=client_options) as client:
         await client.query(enhanced_prompt)
-        result = ""
+        conversation_log = []
+
+        final_result = ""
+
         async for message in client.receive_response():
             if hasattr(message, 'content'):
                 for block in message.content:
                     if hasattr(block, 'text'):
-                        result += block.text
-            elif hasattr(message, 'text'):
-                result += message.text
-        return result
+                        # Claude's text responses - don't store, just log
+                        print(f"CLAUDE: {block.text}")
+                    elif hasattr(block, 'tool_use_id'):
+                        # Tool execution results - extract and immediately log
+                        if isinstance(block.content, list) and len(block.content) > 0:
+                            tool_text = block.content[0].get('text', str(block.content))
+                            tool_output = f"🔧 Tool Result: {tool_text}"
+                        else:
+                            tool_output = f"🔧 Tool Result: {block.content}"
+
+                        print(f"TOOL OUTPUT: {tool_output}")  # Log immediately
+
+                    elif hasattr(block, 'name'):  # Tool use block
+                        tool_args = getattr(block, 'input', {})
+                        tool_call = f"🛠️  Using tool '{block.name}' with args: {tool_args}"
+                        print(f"TOOL CALL: {tool_call}")  # Log immediately
+
+            elif hasattr(message, 'result'):
+                # Final result from ResultMessage - this is what we return
+                if message.result:
+                    final_result = message.result
+                    print(f"FINAL: {final_result}")
+
+        # Return just the final result content
+        return final_result or "No result generated"
 
 async def ask_claude_for_keywords(content, context, max_keywords):
     prompt = f"Please analyze this content and generate {max_keywords} relevant keywords using the generate_keywords tool. Content: {content}. Context: {context}"
