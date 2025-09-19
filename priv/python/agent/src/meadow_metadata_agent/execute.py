@@ -45,18 +45,15 @@ async def query_claude_general_local(prompt, context_json):
     context_data = json.loads(context_json) if context_json else {}
 
     # Build a more explicit prompt that encourages tool usage
-    enhanced_prompt = f"""You have access to these tools:
-    - generate_keywords: Generate relevant keywords from content
-    - generate_description: Generate a description from content
+    enhanced_prompt = f"""
+    Use the available tools to answer the following query:
 
     User query: {prompt}
 
     Context data: {json.dumps(context_data, indent=2) if context_data else "None"}
 
     Please use the appropriate tools to help answer this query. For example:
-    - If asked to extract keywords, use the generate_keywords tool
-    - If asked to create descriptions, use the generate_description tool
-    - Use tools even if you could answer without them, as they provide structured analysis
+    - Before using the `call_graphql_endpoint` tool to query or update data, use it to discover the schema first.
 
     Respond with both tool results and your analysis."""
 
@@ -67,6 +64,7 @@ async def query_claude_general_local(prompt, context_json):
         final_result = ""
 
         async for message in client.receive_response():
+            print(f"MESSAGE: {message}")
             if hasattr(message, 'content'):
                 for block in message.content:
                     if hasattr(block, 'text'):
