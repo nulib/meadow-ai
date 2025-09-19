@@ -17,6 +17,29 @@ global_client = None
 client_options_global = client_options
 
 async def query_claude_general(prompt, context_json):
+    # Parse context and include it in the prompt
+    context_data = json.loads(context_json) if context_json else {}
+
+    # Build enhanced prompt with context
+    enhanced_prompt = prompt
+    if context_data:
+        enhanced_prompt += f"\n\nContext data: {json.dumps(context_data, indent=2)}"
+        enhanced_prompt += "\n\nPlease use the available tools (generate_keywords, generate_description) if they would help answer this query."
+
+    # Use client as context manager
+    async with ClaudeSDKClient(options=client_options_global) as client:
+        await client.query(enhanced_prompt)
+        result = ""
+        async for message in client.receive_response():
+            if hasattr(message, 'content'):
+                for block in message.content:
+                    if hasattr(block, 'text'):
+                        result += block.text
+            elif hasattr(message, 'text'):
+                result += message.text
+        return result
+
+async def query_claude_general_local(prompt, context_json):
     context_data = json.loads(context_json) if context_json else {}
 
     # Build a more explicit prompt that encourages tool usage

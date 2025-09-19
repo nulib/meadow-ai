@@ -151,7 +151,6 @@ defmodule MeadowAI.MetadataAgent do
   end
 
   defp initialize_python_session(_opts) do
-    set_environment()
     try do
       Logger.info("Initializing MetadataAgent")
 
@@ -176,7 +175,6 @@ defmodule MeadowAI.MetadataAgent do
   end
 
   defp execute_claude_query(prompt, opts) do
-    set_environment()
     try do
       context = Keyword.get(opts, :context, %{})
 
@@ -250,10 +248,4 @@ defmodule MeadowAI.MetadataAgent do
   end
 
   defp parse_claude_response(response), do: to_string(response) |> String.trim()
-
-  defp set_environment do
-    System.put_env("AWS_BEARER_TOKEN_BEDROCK", Application.get_env(:meadow_ai, :bedrock_bearer_token, ""))
-    System.put_env("CLAUDE_CODE_USE_BEDROCK", "1")
-    System.put_env("MAX_MCP_OUTPUT_TOKENS", "50000")
-  end
 end
