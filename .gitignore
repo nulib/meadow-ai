@@ -27,3 +27,4 @@ meadow_ai-*.tar
 *.local.exs
 priv/**/build/*
 *.egg-info
+.env

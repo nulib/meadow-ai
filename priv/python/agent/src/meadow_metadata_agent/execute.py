@@ -9,7 +9,9 @@ client_options = ClaudeCodeOptions(
         # "mcp__metadata__generate_keywords",
         # "mcp__metadata__generate_description",
         "mcp__metadata__call_graphql_endpoint",
-    ]
+    ],
+    disallowed_tools=["Bash", "Grep"],
+    system_prompt="Answer questions ONLY using the graphql tools available. Do not look for information in the file system or local codebase."
 )
 
 # Global variables for client management

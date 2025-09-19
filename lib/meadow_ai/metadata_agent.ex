@@ -30,7 +30,7 @@ defmodule MeadowAI.MetadataAgent do
   {:ok, response} | {:error, reason}
   """
   def query(prompt, opts \\ []) do
-    timeout = Keyword.get(opts, :timeout, 30_000)
+    timeout = Keyword.get(opts, :timeout, 120_000)
     GenServer.call(__MODULE__, {:query, prompt, opts}, timeout)
   end
 
