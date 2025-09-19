@@ -25,3 +25,5 @@ meadow_ai-*.tar
 .DS_Store
 
 *.local.exs
+priv/**/build/*
+*.egg-info

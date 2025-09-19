@@ -147,22 +147,24 @@ defmodule MeadowAI.MetadataAgent do
   # Private Functions
   defp pyread(file) do
     priv_dir = :code.priv_dir(:meadow_ai) |> to_string()
-    Path.join([priv_dir, "python", file]) |> File.read!()
+    Path.join([priv_dir, "python", "integration", file]) |> File.read!()
   end
 
   defp initialize_python_session(_opts) do
+    set_environment()
     try do
       Logger.info("Initializing MetadataAgent")
 
       # Initialize PythonX with Claude Code Python SDK
-      case pyread("pyproject.toml") |> Pythonx.uv_init() do
-        :ok ->
+      # Use the on-disk pyproject but rewrite the local source path to an absolute path
+      # so Pythonx.uv_init() can resolve it even if it runs from a temp directory.
+      pyproject =
+        pyread("pyproject.toml")
+        |> String.replace("${PRIV_PATH}", :code.priv_dir(:meadow_ai) |> to_string())
 
-          # Set up the Python environment with our tools
-          case pyread("setup.py") |> Pythonx.eval(%{}) do
-            {_output, _globals} ->
-              {:ok, %{initialized_at: DateTime.utc_now()}}
-          end
+      case Pythonx.uv_init(pyproject) do
+        :ok ->
+          {:ok, %{initialized_at: DateTime.utc_now()}}
 
         _ ->
           {:error, :pythonx_init_failed}
@@ -174,6 +176,7 @@ defmodule MeadowAI.MetadataAgent do
   end
 
   defp execute_claude_query(prompt, opts) do
+    set_environment()
     try do
       context = Keyword.get(opts, :context, %{})
 
@@ -184,7 +187,7 @@ defmodule MeadowAI.MetadataAgent do
         context_json = Jason.encode!(context)
 
         # Ensure function exists and call it
-        query_code = pyread("query.py")
+        query_code = pyread("agent_integration.py")
         result = Pythonx.eval(
           query_code,
           %{
@@ -232,4 +235,10 @@ defmodule MeadowAI.MetadataAgent do
   end
 
   defp parse_claude_response(response), do: to_string(response) |> String.trim()
+
+  defp set_environment do
+    System.put_env("AWS_BEARER_TOKEN_BEDROCK", Application.get_env(:meadow_ai, :bedrock_bearer_token, ""))
+    System.put_env("CLAUDE_CODE_USE_BEDROCK", "1")
+    System.put_env("MAX_MCP_OUTPUT_TOKENS", "50000")
+  end
 end
