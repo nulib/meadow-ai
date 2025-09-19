@@ -77,6 +77,9 @@ defmodule MeadowAI.MetadataAgent do
 
   @impl true
   def handle_call({:query, prompt, opts}, _from, state) do
+    opts = Keyword.put_new(opts, :graphql_endpoint, Application.get_env(:meadow_ai, :graphql_endpoint, "https://localhost:3001/api/graphql"))
+    |> Keyword.put_new(:graphql_auth_token, Application.get_env(:meadow_ai, :graphql_auth_token))
+
     case state.python_initialized do
       true ->
         result = execute_claude_query(prompt, opts)
@@ -186,7 +189,9 @@ defmodule MeadowAI.MetadataAgent do
           query_code,
           %{
             "prompt" => prompt,
-            "context_json" => context_json
+            "context_json" => context_json,
+            "graphql_endpoint" => Keyword.get(opts, :graphql_endpoint),
+            "graphql_auth_token" => Keyword.get(opts, :graphql_auth_token)
           })
         case result do
           {response, _globals} -> {:ok, parse_claude_response(response)}

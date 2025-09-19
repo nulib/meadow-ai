@@ -23,3 +23,5 @@ meadow_ai-*.tar
 /tmp/
 
 .DS_Store
+
+*.local.exs

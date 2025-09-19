@@ -1,5 +1,6 @@
 import asyncio
 import json
+import requests
 from claude_code_sdk import (
     ClaudeSDKClient,
     ClaudeCodeOptions,
@@ -10,6 +11,25 @@ from typing import Any
 
 # Recreate tools and options if needed
 if 'metadata_server' not in globals():
+    @tool("call_graphql_endpoint", "Call a GraphQL endpoint", {
+        "graphql_query": str,
+        "graphql_vars": dict
+    })
+    async def call_graphql_endpoint_tool(args: dict[str, Any]) -> dict[str, Any]:
+        graphql_query = args.get("graphql_query", "")
+        graphql_vars = args.get("graphql_vars", {})
+
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {graphql_auth_token}"
+        }
+
+        response = requests.post(graphql_endpoint, json={"query": graphql_query, "variables": graphql_vars}, headers=headers)
+        if response.status_code == 200:
+            return {"content": [{"type": "text", "text": json.dumps(response.json())}]}
+        else:
+            return {"content": [{"type": "text", "text": f"Error: {response.status_code} - {response.text}"}]}
+    
     @tool("generate_keywords", "Generate relevant keywords from content", {
         "content": str,
         "context": str,
@@ -21,8 +41,8 @@ if 'metadata_server' not in globals():
         max_keywords = args.get("max_keywords", 10)
 
         import re
-        words = re.findall(r'\\b\\w+\\b', content.lower())
-        context_words = re.findall(r'\\b\\w+\\b', context.lower()) if context else []
+        words = re.findall(r'\b\w+\b', content.lower())
+        context_words = re.findall(r'\b\w+\b', context.lower()) if context else []
 
         all_words = words + context_words
         word_freq = {}
@@ -67,18 +87,17 @@ if 'metadata_server' not in globals():
     metadata_server = create_sdk_mcp_server(
         name="metadata",
         version="1.0.0",
-        tools=[generate_keywords_tool, generate_description_tool]
+        tools=[call_graphql_endpoint_tool]
     )
 
     client_options = ClaudeCodeOptions(
         mcp_servers={"metadata": metadata_server},
         allowed_tools=[
-            "mcp__metadata__generate_keywords",
-            "mcp__metadata__generate_description"
+            "mcp__metadata__call_graphql_endpoint",
         ]
     )
 
-    print(f"Created MCP server with {len([generate_keywords_tool, generate_description_tool])} tools")
+    print("Created MCP server.")
     print(f"Client options configured with allowed tools: {client_options.allowed_tools}")
     print("Tools registered successfully")
 
